@@ -1,5 +1,5 @@
 const { setDealDetails, getDeal, getContact, addDealComment } = require('../bitrix');
-const { formatDealCard, formatAmount } = require('../utils/formatter');
+const { formatDealCard, formatAmount, esc } = require('../utils/formatter');
 const { dealActionsKeyboard, cancelKeyboard } = require('../utils/keyboards');
 const { getSession, setSession, setStep, STEPS } = require('../sessions/sessionManager');
 
