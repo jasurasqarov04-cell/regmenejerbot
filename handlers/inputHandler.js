@@ -1,4 +1,4 @@
-const { setDealDetails, getDeal, getContact } = require('../bitrix');
+const { setDealDetails, getDeal, getContact, addDealComment } = require('../bitrix');
 const { formatDealCard, formatAmount } = require('../utils/formatter');
 const { dealActionsKeyboard, cancelKeyboard } = require('../utils/keyboards');
 const { getSession, setSession, setStep, STEPS } = require('../sessions/sessionManager');
@@ -84,15 +84,21 @@ async function handleTextInput(ctx) {
       return true;
     }
 
-    // ── Комментарий ──────────────────────────────────────────────────────────
+    // ── Комментарий → пишем в ленту сделки ───────────────────────────────────
     if (session.step === STEPS.WAIT_COMMENT) {
       setStep(ctx.from.id, STEPS.IDLE);
-      await setDealDetails(dealId, { comment: text });
+
+      // Имя автора из Telegram
+      const authorName = [ctx.from.first_name, ctx.from.last_name]
+        .filter(Boolean).join(' ') || ctx.from.username || 'Менеджер';
+
+      await addDealComment(dealId, text, authorName);
+
       const deal = await getDeal(dealId);
       let contact = null;
       if (deal?.CONTACT_ID) { try { contact = await require('../bitrix').getContact(deal.CONTACT_ID); } catch (_) {} }
       await ctx.reply(
-        `✅ *Комментарий сохранён*\n\n${formatDealCard(deal, contact)}`,
+        `✅ *Комментарий добавлен в ленту сделки*\n\n${formatDealCard(deal, contact)}`,
         { parse_mode: 'Markdown', ...dealActionsKeyboard(dealId) }
       );
       return true;
