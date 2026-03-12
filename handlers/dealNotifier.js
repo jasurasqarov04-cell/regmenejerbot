@@ -1,21 +1,28 @@
 const { getDeal, getContact } = require('../bitrix');
 const { formatNewDealNotification, formatDealCard } = require('../utils/formatter');
-const { getChatIdByDeal, getRegionLabelByDeal } = require('../utils/regions');
 const { dealActionsKeyboard } = require('../utils/keyboards');
-const { setDeal } = require('../sessions/sessionManager');
+const { setDeal, trackActivity } = require('../sessions/sessionManager');
+const config = require('../config');
 
-// ─── Отправить карточку сделки в Telegram-группу региона ─────────────────────
+// ─── Отправить сделку всем менеджерам региона лично ──────────────────────────
 async function sendDealToRegion(bot, deal) {
-  const chatId = getChatIdByDeal(deal);
+  const fieldValue = deal[config.pipeline.regionField];
+  const regionKey  = config.getRegionKeyByFieldValue(fieldValue);
 
-  if (!chatId) {
-    console.warn(`[Notifier] Нет chat_id для сделки #${deal.ID} (поле региона: ${deal['UF_CRM_6750379924C59']})`);
+  if (!regionKey) {
+    console.warn(`[Notifier] Нет региона для сделки #${deal.ID} (поле: ${fieldValue})`);
     return false;
   }
 
-  const regionLabel = getRegionLabelByDeal(deal);
+  const regionLabel  = config.getRegionLabel(regionKey);
+  const managerIds   = config.getManagersByRegion(regionKey);
 
-  // Загружаем контакт если есть
+  if (!managerIds.length) {
+    console.warn(`[Notifier] Нет менеджеров для региона ${regionKey}`);
+    return false;
+  }
+
+  // Загружаем контакт
   let contact = null;
   if (deal.CONTACT_ID) {
     try { contact = await getContact(deal.CONTACT_ID); } catch (_) {}
@@ -24,28 +31,33 @@ async function sendDealToRegion(bot, deal) {
   const text     = formatNewDealNotification(deal, contact, regionLabel);
   const keyboard = dealActionsKeyboard(deal.ID);
 
-  try {
-    await bot.telegram.sendMessage(chatId, text, {
-      parse_mode: 'Markdown',
-      ...keyboard,
-    });
-    console.log(`[Notifier] Сделка #${deal.ID} → ${regionLabel} (${chatId})`);
-    return true;
-  } catch (err) {
-    console.error(`[Notifier] Ошибка отправки в ${chatId}:`, err.message);
-    return false;
+  // Отправляем каждому менеджеру региона лично
+  let sent = 0;
+  for (const telegramId of managerIds) {
+    try {
+      await bot.telegram.sendMessage(telegramId, text, {
+        parse_mode: 'Markdown',
+        ...keyboard,
+      });
+      sent++;
+      console.log(`[Notifier] Сделка #${deal.ID} → менеджер ${telegramId} (${regionLabel})`);
+    } catch (err) {
+      console.error(`[Notifier] Не удалось отправить менеджеру ${telegramId}:`, err.message);
+      const { logError } = require('../sessions/sessionManager');
+      logError('Notifier', `Сделка #${deal.ID} → ${telegramId}: ${err.message}`);
+    }
   }
+
+  return sent > 0;
 }
 
-// ─── Показать полную карточку сделки по запросу менеджера ────────────────────
+// ─── Показать карточку сделки ─────────────────────────────────────────────────
 async function showDealCard(ctx, dealId) {
-  const loading = await ctx.reply('⏳ Загружаю сделку...');
+  await ctx.reply('⏳ Загружаю сделку...');
 
   try {
     const deal = await getDeal(dealId);
     if (!deal) return ctx.reply('❌ Сделка не найдена.');
-
-    // Проверяем что это воронка 32
     if (String(deal.CATEGORY_ID) !== '32') {
       return ctx.reply('❌ Эта сделка не из воронки региональных менеджеров.');
     }
@@ -57,31 +69,28 @@ async function showDealCard(ctx, dealId) {
 
     setDeal(ctx.from.id, dealId);
 
-    const text = formatDealCard(deal, contact);
-    await ctx.reply(text, {
+    await ctx.reply(formatDealCard(deal, contact), {
       parse_mode: 'Markdown',
       ...dealActionsKeyboard(dealId),
     });
   } catch (err) {
     console.error(`[Notifier] showDealCard #${dealId}:`, err.message);
+    const { logError } = require('../sessions/sessionManager');
+    logError('showDealCard', `#${dealId}: ${err.message}`);
     await ctx.reply('❌ Ошибка загрузки сделки.');
   }
 }
 
-// ─── Поиск сделок по названию ─────────────────────────────────────────────────
+// ─── Поиск сделок ─────────────────────────────────────────────────────────────
 async function searchDeals(ctx, query) {
   const { getDeals } = require('../bitrix');
-  const { Markup } = require('telegraf');
+  const { Markup }   = require('telegraf');
 
   await ctx.reply('🔍 Ищу...');
 
   try {
-    const deals = await getDeals(
-      { '%TITLE': query },
-      ['ID', 'TITLE', 'STAGE_ID', 'OPPORTUNITY']
-    );
-
-    if (!deals.length) return ctx.reply(`❌ Сделки по запросу "${query}" не найдены.`);
+    const deals = await getDeals({ '%TITLE': query }, ['ID', 'TITLE', 'STAGE_ID']);
+    if (!deals.length) return ctx.reply(`❌ Ничего не найдено по запросу "${query}"`);
 
     const { formatStage } = require('../utils/formatter');
     const buttons = deals.slice(0, 10).map((d) => [
