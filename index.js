@@ -4,6 +4,9 @@ const bot     = require('./bot');
 const config  = require('./config');
 const webhook = require('./webhook/bitrixWebhook');
 
+// Пинг чтобы Render не засыпал
+require('./keepalive');
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
