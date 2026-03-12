@@ -2,7 +2,6 @@ const { setDealDetails, getDeal, getContact, addDealComment } = require('../bitr
 const { formatDealCard, formatAmount, esc } = require('../utils/formatter');
 const { dealActionsKeyboard, cancelKeyboard } = require('../utils/keyboards');
 const { getSession, setSession, setStep, STEPS } = require('../sessions/sessionManager');
-
 // ─── Нажата кнопка действия ───────────────────────────────────────────────────
 async function handleActionButton(ctx) {
   const parts  = ctx.callbackQuery.data.split(':');
@@ -77,8 +76,9 @@ async function handleTextInput(ctx) {
       const deal = await getDeal(dealId);
       let contact = null;
       if (deal?.CONTACT_ID) { try { contact = await require('../bitrix').getContact(deal.CONTACT_ID); } catch (_) {} }
+      const lastComment = getSession(ctx.from.id)[`comment_${dealId}`] || null;
       await ctx.reply(
-        `✅ *Сумма обновлена:* ${formatAmount(amount)}\n\n${formatDealCard(deal, contact)}`,
+        `✅ *Сумма обновлена:* ${formatAmount(amount)}\n\n${formatDealCard(deal, contact, lastComment)}`,
         { parse_mode: 'Markdown', ...dealActionsKeyboard(dealId) }
       );
       return true;
@@ -93,8 +93,8 @@ async function handleTextInput(ctx) {
 
       await addDealComment(dealId, text, authorName);
 
-      // Сохраняем последний комментарий в сессии
-      setSession(ctx.from.id, { lastComment: text });
+      // Сохраняем комментарий привязанный к сделке
+      setSession(ctx.from.id, { [`comment_${dealId}`]: `${authorName}: ${text}` });
 
       await ctx.reply(
         `✅ *Комментарий записан*\n\n` +
