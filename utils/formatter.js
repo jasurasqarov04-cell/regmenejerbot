@@ -52,10 +52,6 @@ function formatDealCard(deal, contact = null) {
       `📞 *Телефон:* ${esc(phone)}\n`;
   }
 
-  if (deal.COMMENTS) {
-    text += `\n💬 *Комментарий:* ${esc(cleanBitrixText(deal.COMMENTS))}\n`;
-  }
-
   return text;
 }
 
