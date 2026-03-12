@@ -84,21 +84,28 @@ async function handleTextInput(ctx) {
       return true;
     }
 
-    // ── Комментарий → пишем в ленту сделки ───────────────────────────────────
+    // ── Комментарий → в ленту Bitrix24 + обновляем карточку в TG ────────────
     if (session.step === STEPS.WAIT_COMMENT) {
       setStep(ctx.from.id, STEPS.IDLE);
 
-      // Имя автора из Telegram
       const authorName = [ctx.from.first_name, ctx.from.last_name]
         .filter(Boolean).join(' ') || ctx.from.username || 'Менеджер';
 
+      // Пишем в ленту сделки (история)
       await addDealComment(dealId, text, authorName);
+
+      // Также обновляем поле COMMENTS чтобы показывалось в карточке TG
+      await setDealDetails(dealId, { comment: text });
 
       const deal = await getDeal(dealId);
       let contact = null;
       if (deal?.CONTACT_ID) { try { contact = await require('../bitrix').getContact(deal.CONTACT_ID); } catch (_) {} }
+
+      // Удаляем сообщение менеджера с текстом
+      try { await ctx.deleteMessage(); } catch (_) {}
+
       await ctx.reply(
-        `✅ *Комментарий добавлен в ленту сделки*\n\n${formatDealCard(deal, contact)}`,
+        `✅ *Комментарий сохранён*\n\n${formatDealCard(deal, contact)}`,
         { parse_mode: 'Markdown', ...dealActionsKeyboard(dealId) }
       );
       return true;
