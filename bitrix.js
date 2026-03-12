@@ -65,7 +65,7 @@ async function getDeals(filter = {}, select = []) {
     filter: { CATEGORY_ID: 32, ...filter },
     select: select.length ? select : [
       'ID', 'TITLE', 'STAGE_ID', 'OPPORTUNITY', 'CURRENCY_ID',
-      'ASSIGNED_BY_ID', 'DATE_CREATE', 'DATE_MODIFY', 'COMMENTS',
+      'ASSIGNED_BY_ID', 'DATE_CREATE', 'DATE_MODIFY',
       'CONTACT_ID', 'UF_CRM_6750379924C59',
     ],
   });
