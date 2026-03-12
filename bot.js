@@ -130,15 +130,14 @@ bot.on('text', async (ctx) => {
   if (handled) { trackAction(ctx.from.id); return; }
 
   const text = ctx.message.text.trim();
+
+  // Если написал число — открываем сделку по ID
   if (/^\d+$/.test(text) && text.length <= 10) {
     trackAction(ctx.from.id);
     return showDealCard(ctx, text);
   }
 
-  await ctx.reply(
-    'Напишите *ID сделки* или используйте:\n/deal 123\n/search Название',
-    { parse_mode: 'Markdown' }
-  );
+  // Всё остальное — игнорируем молча
 });
 
 // ─── Обработчик ошибок ────────────────────────────────────────────────────────
