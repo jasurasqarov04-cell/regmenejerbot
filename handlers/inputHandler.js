@@ -17,7 +17,8 @@ async function handleActionButton(ctx) {
       if (deal?.CONTACT_ID) {
         try { contact = await require('../bitrix').getContact(deal.CONTACT_ID); } catch (_) {}
       }
-      await ctx.editMessageText(formatDealCard(deal, contact), {
+      const lastComment = getSession(ctx.from.id)[`comment_${dealId}`] || null;
+      await ctx.editMessageText(formatDealCard(deal, contact, lastComment), {
         parse_mode: 'Markdown',
         ...dealActionsKeyboard(dealId),
       });
