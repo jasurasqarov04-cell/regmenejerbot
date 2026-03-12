@@ -1,7 +1,7 @@
 const { getDeal, getContact } = require('../bitrix');
 const { formatNewDealNotification, formatDealCard } = require('../utils/formatter');
 const { dealActionsKeyboard } = require('../utils/keyboards');
-const { setDeal, trackActivity } = require('../sessions/sessionManager');
+const { setDeal, trackActivity, getSession } = require('../sessions/sessionManager');
 const config = require('../config');
 
 // ─── Отправить сделку всем менеджерам региона лично ──────────────────────────
@@ -69,7 +69,11 @@ async function showDealCard(ctx, dealId) {
 
     setDeal(ctx.from.id, dealId);
 
-    await ctx.reply(formatDealCard(deal, contact), {
+    // Берём последний комментарий из сессии если есть
+    const session     = getSession(ctx.from.id);
+    const lastComment = session[`comment_${dealId}`] || null;
+
+    await ctx.reply(formatDealCard(deal, contact, lastComment), {
       parse_mode: 'Markdown',
       ...dealActionsKeyboard(dealId),
     });
