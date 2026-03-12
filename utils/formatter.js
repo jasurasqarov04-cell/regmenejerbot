@@ -23,7 +23,7 @@ function formatStage(stageId) {
 }
 
 // ─── Полная карточка сделки ───────────────────────────────────────────────────
-function formatDealCard(deal, contact = null) {
+function formatDealCard(deal, contact = null, lastComment = null) {
   const title    = deal.TITLE || `Сделка #${deal.ID}`;
   const stage    = formatStage(deal.STAGE_ID);
   const amount   = formatAmount(deal.OPPORTUNITY);
@@ -50,6 +50,10 @@ function formatDealCard(deal, contact = null) {
     text +=
       `\n👤 *Контакт:* ${esc(name)}\n` +
       `📞 *Телефон:* ${esc(phone)}\n`;
+  }
+
+  if (lastComment) {
+    text += `\n💬 *Комментарий:* ${esc(lastComment)}\n`;
   }
 
   return text;
