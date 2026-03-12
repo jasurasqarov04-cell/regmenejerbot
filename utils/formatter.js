@@ -53,7 +53,7 @@ function formatDealCard(deal, contact = null) {
   }
 
   if (deal.COMMENTS) {
-    text += `\n💬 *Комментарий:* ${esc(deal.COMMENTS)}\n`;
+    text += `\n💬 *Комментарий:* ${esc(cleanBitrixText(deal.COMMENTS))}\n`;
   }
 
   return text;
@@ -78,7 +78,16 @@ function formatNewDealNotification(deal, contact, regionLabel) {
   );
 }
 
-// ─── Экранирование Markdown ───────────────────────────────────────────────────
+// ─── Очистка BBcode тегов Bitrix24 ───────────────────────────────────────────
+function cleanBitrixText(text) {
+  if (!text) return '';
+  return text
+    .replace(/\[\/?(p|b|i|u|s|br|ul|ol|li|url|img|quote|code|size|color)[^\]]*\]/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+
 function esc(text) {
   if (!text) return '';
   return String(text).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
@@ -90,5 +99,6 @@ module.exports = {
   formatStage,
   formatDealCard,
   formatNewDealNotification,
+  cleanBitrixText,
   esc,
 };
