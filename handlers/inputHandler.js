@@ -84,27 +84,17 @@ async function handleTextInput(ctx) {
       return true;
     }
 
-    // ── Комментарий → только в ленту Bitrix24, в TG показываем из сессии ────
+    // ── Комментарий → только в ленту Bitrix24 ────────────────────────────────
     if (session.step === STEPS.WAIT_COMMENT) {
       setStep(ctx.from.id, STEPS.IDLE);
 
       const authorName = [ctx.from.first_name, ctx.from.last_name]
         .filter(Boolean).join(' ') || ctx.from.username || 'Менеджер';
 
-      // Только в ленту — поле COMMENTS не трогаем
       await addDealComment(dealId, text, authorName);
 
-      const deal = await getDeal(dealId);
-      let contact = null;
-      if (deal?.CONTACT_ID) { try { contact = await require('../bitrix').getContact(deal.CONTACT_ID); } catch (_) {} }
-
-      // Удаляем сообщение менеджера с текстом
-      try { await ctx.deleteMessage(); } catch (_) {}
-
-      // Показываем карточку + последний комментарий из TG (не из поля Bitrix)
-      const card = formatDealCard(deal, contact);
       await ctx.reply(
-        `✅ *Комментарий записан*\n\n${card}\n💬 *Последний комментарий:* ${esc(text)}`,
+        `✅ *Комментарий записан в Bitrix24*`,
         { parse_mode: 'Markdown', ...dealActionsKeyboard(dealId) }
       );
       return true;
