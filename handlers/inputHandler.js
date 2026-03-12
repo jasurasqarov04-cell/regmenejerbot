@@ -84,7 +84,7 @@ async function handleTextInput(ctx) {
       return true;
     }
 
-    // ── Комментарий → только в ленту Bitrix24 ────────────────────────────────
+    // ── Комментарий → в ленту Bitrix24, последний показываем в TG ───────────
     if (session.step === STEPS.WAIT_COMMENT) {
       setStep(ctx.from.id, STEPS.IDLE);
 
@@ -93,8 +93,12 @@ async function handleTextInput(ctx) {
 
       await addDealComment(dealId, text, authorName);
 
+      // Сохраняем последний комментарий в сессии
+      setSession(ctx.from.id, { lastComment: text });
+
       await ctx.reply(
-        `✅ *Комментарий записан в Bitrix24*`,
+        `✅ *Комментарий записан*\n\n` +
+        `💬 *${esc(authorName)}:* ${esc(text)}`,
         { parse_mode: 'Markdown', ...dealActionsKeyboard(dealId) }
       );
       return true;
