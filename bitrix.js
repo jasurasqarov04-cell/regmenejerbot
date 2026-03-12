@@ -71,7 +71,18 @@ async function getDeals(filter = {}, select = []) {
   });
 }
 
-// ─── Контакт сделки ───────────────────────────────────────────────────────────
+// Добавить комментарий в ленту сделки (timeline)
+async function addDealComment(dealId, text, authorName) {
+  const comment = authorName ? `👤 ${authorName}:\n${text}` : text;
+  const res = await bitrixRequest('crm.timeline.comment.add', {
+    fields: {
+      ENTITY_ID:   dealId,
+      ENTITY_TYPE: 'deal',
+      COMMENT:     comment,
+    },
+  });
+  return res.result;
+}
 async function getContact(contactId) {
   const res = await bitrixRequest('crm.contact.get', { id: contactId });
   return res.result;
@@ -92,6 +103,7 @@ module.exports = {
   setDealStage,
   setDealDetails,
   getDeals,
+  addDealComment,
   getContact,
   getPipelineStages,
 };
