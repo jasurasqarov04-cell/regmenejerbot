@@ -1,12 +1,10 @@
 const config = require('../config');
 
-// ─── Форматирование суммы в UZS ───────────────────────────────────────────────
 function formatAmount(amount) {
   if (!amount || amount === '0') return '—';
   return Number(amount).toLocaleString('ru-RU') + ' сум';
 }
 
-// ─── Форматирование даты ──────────────────────────────────────────────────────
 function formatDate(dateStr) {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleString('ru-RU', {
@@ -15,7 +13,6 @@ function formatDate(dateStr) {
   });
 }
 
-// ─── Стадия сделки с эмодзи ───────────────────────────────────────────────────
 function formatStage(stageId) {
   const stage = config.pipeline.stageById[stageId];
   if (stage) return `${stage.emoji} ${stage.name}`;
@@ -30,10 +27,9 @@ function formatDealCard(deal, contact = null, lastComment = null) {
   const created  = formatDate(deal.DATE_CREATE);
   const modified = formatDate(deal.DATE_MODIFY);
 
-  // Регион из поля
   const regionFieldVal = deal[config.pipeline.regionField];
-  const regionKey   = config.getRegionKeyByFieldValue(regionFieldVal);
-  const regionLabel = regionKey ? config.getRegionLabel(regionKey) : '—';
+  const regionKey      = config.getRegionKeyByFieldValue(regionFieldVal);
+  const regionLabel    = regionKey ? config.getRegionLabel(regionKey) : '—';
 
   let text =
     `📋 *Сделка #${deal.ID}*\n` +
@@ -52,14 +48,23 @@ function formatDealCard(deal, contact = null, lastComment = null) {
       `📞 *Телефон:* ${esc(phone)}\n`;
   }
 
+  // Комментарий из Битрикса (COMMENTS поле) — постоянный
+  if (deal.COMMENTS) {
+    const bitrixComment = cleanBitrixText(deal.COMMENTS);
+    if (bitrixComment) {
+      text += `\n📌 *Комментарий Битрикс:* ${esc(bitrixComment)}\n`;
+    }
+  }
+
+  // Комментарий менеджера (из сессии)
   if (lastComment) {
-    text += `\n💬 *Комментарий:* ${esc(lastComment)}\n`;
+    text += `\n💬 *Комментарий менеджера:* ${esc(lastComment)}\n`;
   }
 
   return text;
 }
 
-// ─── Уведомление о новой сделке (короткое) ────────────────────────────────────
+// ─── Уведомление о новой сделке ───────────────────────────────────────────────
 function formatNewDealNotification(deal, contact, regionLabel) {
   const title  = deal.TITLE || `Сделка #${deal.ID}`;
   const amount = formatAmount(deal.OPPORTUNITY);
@@ -78,7 +83,6 @@ function formatNewDealNotification(deal, contact, regionLabel) {
   );
 }
 
-// ─── Очистка BBcode тегов Bitrix24 ───────────────────────────────────────────
 function cleanBitrixText(text) {
   if (!text) return '';
   return text
@@ -86,7 +90,6 @@ function cleanBitrixText(text) {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
-
 
 function esc(text) {
   if (!text) return '';
