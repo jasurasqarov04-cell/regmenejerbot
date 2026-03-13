@@ -2,31 +2,12 @@ const { setDealDetails, getDeal, getContact, addDealComment } = require('../bitr
 const { formatDealCard, formatAmount, esc } = require('../utils/formatter');
 const { dealActionsKeyboard, cancelKeyboard } = require('../utils/keyboards');
 const { getSession, setSession, setStep, STEPS } = require('../sessions/sessionManager');
+
 // ─── Нажата кнопка действия ───────────────────────────────────────────────────
 async function handleActionButton(ctx) {
   const parts  = ctx.callbackQuery.data.split(':');
   const dealId = parts[1];
   const action = parts[2];
-
-  // Обновить карточку
-  if (action === 'refresh') {
-    await ctx.answerCbQuery('⏳');
-    try {
-      const deal = await getDeal(dealId);
-      let contact = null;
-      if (deal?.CONTACT_ID) {
-        try { contact = await require('../bitrix').getContact(deal.CONTACT_ID); } catch (_) {}
-      }
-      const lastComment = getSession(ctx.from.id)[`comment_${dealId}`] || null;
-      await ctx.editMessageText(formatDealCard(deal, contact, lastComment), {
-        parse_mode: 'Markdown',
-        ...dealActionsKeyboard(dealId),
-      });
-    } catch {
-      await ctx.editMessageText('❌ Ошибка загрузки.', dealActionsKeyboard(dealId));
-    }
-    return;
-  }
 
   // Ввод суммы
   if (action === 'amount') {
@@ -53,6 +34,17 @@ async function handleActionButton(ctx) {
   await ctx.answerCbQuery();
 }
 
+// ─── Загрузить и показать карточку ───────────────────────────────────────────
+async function reloadAndShowCard(ctx, dealId) {
+  const deal = await getDeal(dealId);
+  let contact = null;
+  if (deal?.CONTACT_ID) {
+    try { contact = await require('../bitrix').getContact(deal.CONTACT_ID); } catch (_) {}
+  }
+  const lastComment = getSession(ctx.from.id)[`comment_${dealId}`] || null;
+  return { deal, contact, lastComment };
+}
+
 // ─── Обработка текстового ввода ───────────────────────────────────────────────
 async function handleTextInput(ctx) {
   const session = getSession(ctx.from.id);
@@ -74,10 +66,9 @@ async function handleTextInput(ctx) {
       }
       setStep(ctx.from.id, STEPS.IDLE);
       await setDealDetails(dealId, { amount });
-      const deal = await getDeal(dealId);
-      let contact = null;
-      if (deal?.CONTACT_ID) { try { contact = await require('../bitrix').getContact(deal.CONTACT_ID); } catch (_) {} }
-      const lastComment = getSession(ctx.from.id)[`comment_${dealId}`] || null;
+
+      // Загружаем свежую карточку и сразу показываем
+      const { deal, contact, lastComment } = await reloadAndShowCard(ctx, dealId);
       await ctx.reply(
         `✅ *Сумма обновлена:* ${formatAmount(amount)}\n\n${formatDealCard(deal, contact, lastComment)}`,
         { parse_mode: 'Markdown', ...dealActionsKeyboard(dealId) }
@@ -85,7 +76,7 @@ async function handleTextInput(ctx) {
       return true;
     }
 
-    // ── Комментарий → в ленту Bitrix24, последний показываем в TG ───────────
+    // ── Комментарий → в ленту Bitrix24 ───────────────────────────────────────
     if (session.step === STEPS.WAIT_COMMENT) {
       setStep(ctx.from.id, STEPS.IDLE);
 
@@ -94,12 +85,13 @@ async function handleTextInput(ctx) {
 
       await addDealComment(dealId, text, authorName);
 
-      // Сохраняем комментарий привязанный к сделке
+      // Сохраняем комментарий менеджера в сессии
       setSession(ctx.from.id, { [`comment_${dealId}`]: `${authorName}: ${text}` });
 
+      // Загружаем свежую карточку (включая COMMENTS из Битрикса) и сразу показываем
+      const { deal, contact, lastComment } = await reloadAndShowCard(ctx, dealId);
       await ctx.reply(
-        `✅ *Комментарий записан*\n\n` +
-        `💬 *${esc(authorName)}:* ${esc(text)}`,
+        `✅ *Комментарий записан*\n\n${formatDealCard(deal, contact, lastComment)}`,
         { parse_mode: 'Markdown', ...dealActionsKeyboard(dealId) }
       );
       return true;
